@@ -3,6 +3,8 @@ import os
 import re
 import csv
 import datetime
+from telegram import Bot, Update
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 object_type = 'Тип об’єкта:'
 description = 'Опис об’єкта:'
@@ -48,7 +50,7 @@ def find_between(page_text, left, *rights):
     return texts
 
 
-pdf_folder = r'C:\Users\Dmytro Halushko\Downloads\Документи на будинки'
+pdf_folder = r'/app/files'
 
 
 def sstr(array):
@@ -58,7 +60,7 @@ def sstr(array):
     return '\'' + res.strip()
 
 
-if __name__ == '__main__':
+def parse():
     # Проходим по всем файлам в папке и извлекаем текст
     print(f'Folder  {pdf_folder}')
     today = datetime.datetime.today()
@@ -97,9 +99,17 @@ if __name__ == '__main__':
                         square_val.extend(find_between(rng, square, square_leave, price_mn, address, stor, ', житлова', vidomosti))
                         address_val = find_between(rng, address, info_zagolovok, 'ВІДОМОСТІ', stor, vidomosti)
                         for av in address_val:
-                            avr = re.sub('м.Київ, вулиця Каблукова Академіка, будинок', '', av).strip()
-                            avr = re.sub('м.Київ, вулиця Скакуна Віталія, будинок', '', avr).strip()
-                            address_val_res.append(avr)
+                            env_value = os.getenv(
+                                'BUILD_ADDRESSES')
+                            if env_value:
+                                values = env_value.split(';')
+                                avr = av
+                                for value in values:
+                                    avr = re.sub('м.Київ, вулиця ' + value + ', будинок', '', av).strip()
+                                address_val_res.append(avr)
+                            else:
+                                print("Змінна не знайдена")
+
                         chast_val.extend(find_between(rng, chast, price_mn, info_zagolovok, 'ВІДОМОСТІ', owner, stor, vidomosti))
                         for ov in find_between(rng, owner, 'ВІДОМОСТІ', ipn, ',', stor, vidomosti):
                             ovr = re.sub(r'[\n]', ' ', ov)
@@ -115,8 +125,29 @@ if __name__ == '__main__':
                                          sstr(square_val),
                                          bud,
                                          kv,
-                                         # sstr(address_val_res),
                                          sstr(chast_val),
                                          sstr(owner_val_res),
                                          sstr(ipn_val),
                                          sstr(zaborona_val)])
+
+# Обработчик команды /start
+async def start(update, context):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Привіт, я вмію парсити!")
+
+# Обработчик текстовых сообщений
+async def echo(update, context):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Просто скинь мені zip архів в якому знаходяться PDF. Без папок, просто PDF в одниій папці, яка містить всі PDF")
+
+# async def parse_zip(update, context):
+#     await context.bot.send_message(chat_id=update.effective_chat.id, text="Просто скинь мені zip архів в якому знаходяться PDF. Без папок, просто PDF в одниій папці, яка містить всі PDF")
+
+def main() -> None:
+    bot_token = os.getenv('BOT_TOKEN')
+    application = Application.builder().token(bot_token).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    # application.add_handler(MessageHandler(filters.Document.ZIP, parse_zip))
+    application.run_polling()
+
+if __name__ == '__main__':
+    main()
