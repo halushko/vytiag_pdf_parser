@@ -155,7 +155,6 @@ async def unzip_and_proceed(update, context):
     file = await context.bot.get_file(file_id)
     downloaded_file = await file.download_as_bytearray()
     directory = f'/app/files/{date_str}'
-    directory = os.getcwd() + "\\" + date_str
 
     # os.rmdir(directory)
     os.makedirs(directory, exist_ok=False)
