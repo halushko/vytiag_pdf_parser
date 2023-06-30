@@ -60,12 +60,7 @@ def sstr(array):
     return '\'' + res.strip()
 
 
-def parse(pdf_folder):
-    today = datetime.datetime.today()
-    csv_path = today.strftime('%Y-%m-%d ') + str(today.hour) + '-' + str(today.minute) + '-' + str(
-        today.second) + '.csv'
-    print(csv_path)
-
+def parse(pdf_folder, csv_path):
     with open(csv_path, 'w', newline='', encoding='Windows-1251') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
         writer.writerow(['№', 'Файл', 'Площа', 'Будинок', 'Квартира', 'Частка', 'Власник', 'ІПН власника', 'Заборона у файлі'])
@@ -132,11 +127,15 @@ def parse(pdf_folder):
 async def unzip_and_proceed(update, context):
     message = update.message
     file_id = message.document.file_id
+    today = datetime.datetime.today()
+    date_str = today.strftime('%Y-%m-%d ') + str(today.hour) + '-' + str(today.minute) + '-' + str(
+        today.second) + '.csv'
     file_name = message.document.file_name
     file = await context.bot.get_file(file_id)
     downloaded_file = await file.download_as_bytearray()
-    directory = f'/app/file/{file_id}'
-    os.rmdir(directory)
+    directory = f'/app/file/{date_str}'
+
+    # os.rmdir(directory)
     os.makedirs(directory, exist_ok=False)
 
     if message.document and message.document.mime_type == 'application/zip':
@@ -158,7 +157,7 @@ async def unzip_and_proceed(update, context):
             dir_path = os.path.join(root, dir_name)
             os.rmdir(dir_path)
 
-    result_file = parse(directory)
+    result_file = parse(directory, date_str + '.csv')
     context.bot.send_document(chat_id=update.effective_chat.id, document=result_file)
 
 async def start(update, context):
@@ -171,7 +170,8 @@ async def parse_zip(update, context):
     await unzip_and_proceed(update, context)
 
 def main() -> None:
-    bot_token = os.getenv('BOT_TOKEN')
+    # bot_token = os.getenv('BOT_TOKEN')
+    bot_token = "6049151976:AAGvaVxb_mRY7G-W8eF7QzMD4GPe6WwRyJU"
     application = Application.builder().token(bot_token).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
