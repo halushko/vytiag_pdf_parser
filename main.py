@@ -1,3 +1,6 @@
+import shutil
+import zipfile
+
 import PyPDF2
 import os
 import re
@@ -50,9 +53,6 @@ def find_between(page_text, left, *rights):
     return texts
 
 
-pdf_folder = r'/app/files'
-
-
 def sstr(array):
     res = ''
     for a in array:
@@ -60,9 +60,7 @@ def sstr(array):
     return '\'' + res.strip()
 
 
-def parse():
-    # Проходим по всем файлам в папке и извлекаем текст
-    print(f'Folder  {pdf_folder}')
+def parse(pdf_folder):
     today = datetime.datetime.today()
     csv_path = today.strftime('%Y-%m-%d ') + str(today.hour) + '-' + str(today.minute) + '-' + str(
         today.second) + '.csv'
@@ -105,7 +103,7 @@ def parse():
                                 values = env_value.split(';')
                                 avr = av
                                 for value in values:
-                                    avr = re.sub('м.Київ, вулиця ' + value + ', будинок', '', av).strip()
+                                    avr = re.sub('м.Київ, ' + value + ', будинок', '', av).strip()
                                 address_val_res.append(avr)
                             else:
                                 print("Змінна не знайдена")
@@ -130,23 +128,53 @@ def parse():
                                          sstr(ipn_val),
                                          sstr(zaborona_val)])
 
-# Обработчик команды /start
+async def unzip_and_proceed(update, context):
+    message = update.message
+    file_id = message.document.file_id
+    file_name = message.document.file_name
+    file_path = context.bot.get_file(file_id).file_path
+    downloaded_file = context.bot.download_file(file_path)
+    directory = f'/app/file/{file_id}'
+    os.rmdir(directory)
+    os.makedirs(directory, exist_ok=False)
+
+    if message.document and message.document.mime_type == 'application/zip':
+        zip_file_path = os.path.join(directory, file_name)
+        with open(zip_file_path, 'wb') as file:
+            file.write(downloaded_file)
+
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extractall(directory)
+        message.reply_text('Архів розпаковано, іде обробка вмісту')
+
+    for root, dirs, files in os.walk(directory):
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            shutil.move(file_path, directory)
+
+    for root, dirs, files in os.walk(directory, topdown=False):
+        for dir_name in dirs:
+            dir_path = os.path.join(root, dir_name)
+            os.rmdir(dir_path)
+
+    parse(directory)
+
+
 async def start(update, context):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Привіт, я вмію парсити!")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Привіт, я вмію парсити PDF! Просто скинь мені zip-архів в якому знаходяться PDF-файли або сам PDF")
 
-# Обработчик текстовых сообщений
 async def echo(update, context):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Просто скинь мені zip архів в якому знаходяться PDF. Без папок, просто PDF в одниій папці, яка містить всі PDF")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Просто скинь мені zip архів в якому знаходяться PDF")
 
-# async def parse_zip(update, context):
-#     await context.bot.send_message(chat_id=update.effective_chat.id, text="Просто скинь мені zip архів в якому знаходяться PDF. Без папок, просто PDF в одниій папці, яка містить всі PDF")
+async def parse_zip(update, context):
+    await unzip_and_proceed(update, context)
 
 def main() -> None:
     bot_token = os.getenv('BOT_TOKEN')
     application = Application.builder().token(bot_token).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-    # application.add_handler(MessageHandler(filters.Document.ZIP, parse_zip))
+    application.add_handler(MessageHandler(filters.Document.ZIP, parse_zip))
     application.run_polling()
 
 if __name__ == '__main__':
