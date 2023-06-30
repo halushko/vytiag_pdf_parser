@@ -128,8 +128,7 @@ async def unzip_and_proceed(update, context):
     message = update.message
     file_id = message.document.file_id
     today = datetime.datetime.today()
-    date_str = today.strftime('%Y-%m-%d ') + str(today.hour) + '-' + str(today.minute) + '-' + str(
-        today.second) + '.csv'
+    date_str = today.strftime('%Y_%m_%d_') + str(today.hour) + str(today.minute) + str(today.second)
     file_name = message.document.file_name
     file = await context.bot.get_file(file_id)
     downloaded_file = await file.download_as_bytearray()
