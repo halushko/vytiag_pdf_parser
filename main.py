@@ -136,7 +136,7 @@ def rename_files_with_random_hex(directory):
     for root, dirs, files in os.walk(directory):
         for dir in dirs:
             if dir == '__MACOSX':
-                os.remove(os.path.join(root, dir))
+                shutil.rmtree(os.path.join(root, dir))
         for file in files:
             file_path = os.path.join(root, file)
             if os.path.isfile(file_path):
