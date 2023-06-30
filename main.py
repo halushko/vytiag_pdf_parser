@@ -132,11 +132,11 @@ async def unzip_and_proceed(update, context):
     file_name = message.document.file_name
     file = await context.bot.get_file(file_id)
     downloaded_file = await file.download_as_bytearray()
-    directory = f'/app/file/{date_str}'
+    directory = f'/app/files/{date_str}'
 
     # os.rmdir(directory)
     os.makedirs(directory, exist_ok=False)
-
+    print('message.document.mime_type=' + message.document.mime_type)
     if message.document and message.document.mime_type == 'application/zip':
         zip_file_path = os.path.join(directory, file_name)
         with open(zip_file_path, 'wb') as file:
