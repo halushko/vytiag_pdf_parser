@@ -134,6 +134,9 @@ def parse(pdf_folder, csv_path):
 def rename_files_with_random_hex(directory):
     print(directory)
     for root, dirs, files in os.walk(directory):
+        for dir in dirs:
+            if dir == '__MACOSX':
+                os.remove(os.path.join(root, dir))
         for file in files:
             file_path = os.path.join(root, file)
             if os.path.isfile(file_path):
@@ -184,7 +187,7 @@ async def unzip_and_proceed(update, context):
     for root, dirs, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)
-            if file.startswith('.') or not file.endswith('.pdf') :
+            if not file.endswith('.pdf') :
                 os.remove(file_path)
         for dir in dirs:
             dir_path = os.path.join(root, dir)
