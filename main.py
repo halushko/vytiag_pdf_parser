@@ -184,7 +184,7 @@ async def unzip_and_proceed(update, context):
     for root, dirs, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)
-            if not file.endswith('.pdf'):
+            if file.startswith('.') or not file.endswith('.pdf') :
                 os.remove(file_path)
         for dir in dirs:
             dir_path = os.path.join(root, dir)
