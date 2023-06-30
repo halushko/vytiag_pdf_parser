@@ -1,13 +1,13 @@
+import csv
+import datetime
+import os
+import random
+import re
 import shutil
 import zipfile
 
 import PyPDF2
-import os
-import re
-import csv
-import datetime
-from telegram import Bot, Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 object_type = 'Тип об’єкта:'
 description = 'Опис об’єкта:'
@@ -69,6 +69,7 @@ def parse(pdf_folder, csv_path):
         for filename in os.listdir(pdf_folder):
             if filename.endswith('pdf'):
                 pdf_path = os.path.join(pdf_folder, filename)
+                print("pdf_path=" + pdf_path)
                 with open(pdf_path, 'rb') as pdf_file:
                     pdf_reader = PyPDF2.PdfReader(pdf_file)
                     page_text = ''
@@ -92,17 +93,20 @@ def parse(pdf_folder, csv_path):
                         square_val.extend(find_between(rng, square, square_leave, price_mn, address, stor, ', житлова', vidomosti))
                         address_val = find_between(rng, address, info_zagolovok, 'ВІДОМОСТІ', stor, vidomosti)
                         for av in address_val:
-                            env_value = os.getenv(
-                                'BUILD_ADDRESSES')
+                            env_value = os.getenv('BUILD_ADDRESSES')
                             if env_value:
                                 values = env_value.split(';')
                                 avr = av
+                                print("До = " + avr)
                                 for value in values:
-                                    avr = re.sub('м.Київ, ' + value + ', будинок', '', av).strip()
+                                    print(value)
+                                    avr = re.sub('м.Київ, ' + value + ', будинок', '', avr).strip()
+                                    print(avr)
+                                print("Після = " + avr)
                                 address_val_res.append(avr)
                             else:
                                 print("Змінна не знайдена")
-
+                        print("Знайдено")
                         chast_val.extend(find_between(rng, chast, price_mn, info_zagolovok, 'ВІДОМОСТІ', owner, stor, vidomosti))
                         for ov in find_between(rng, owner, 'ВІДОМОСТІ', ipn, ',', stor, vidomosti):
                             ovr = re.sub(r'[\n]', ' ', ov)
@@ -111,9 +115,11 @@ def parse(pdf_folder, csv_path):
                             owner_val_res.append(ovr)
                         ipn_val.extend(find_between(rng, ipn, 'ВІДОМОСТІ', vidomosti, ','))
                         nom = nom + 1
+                        print(address_val_res)
                         address_full = sstr(address_val_res)
+                        print(address_full)
                         kv = '\'' + address_full[address_full.rfind(' '):].strip()
-                        bud = address_full[0:address_full.rfind(' ')+1].strip()
+                        bud = address_full[0:address_full.rfind(',')].strip()
                         writer.writerow([nom, filename,
                                          sstr(square_val),
                                          bud,
@@ -124,40 +130,68 @@ def parse(pdf_folder, csv_path):
                                          sstr(zaborona_val)])
     return csv_path
 
+def rename_files_with_random_hex(directory):
+    print(directory)
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if os.path.isfile(file_path):
+                name, extension = os.path.splitext(file)
+                new_name = ''.join(random.choice('0123456789ABCDEF') + random.choice('0123456789ABCDEF') for _ in range(len(name)))
+                new_filename = new_name + extension
+
+                new_file_path = os.path.join(directory, new_filename)
+                print(file_path)
+                print(new_file_path)
+                os.rename(file_path, new_file_path)
+
 async def unzip_and_proceed(update, context):
     message = update.message
     file_id = message.document.file_id
     today = datetime.datetime.today()
-    date_str = today.strftime('%Y_%m_%d_') + str(today.hour) + str(today.minute) + str(today.second)
+    date_str = today.strftime('%Y_%m_%d_') + str(today.hour) + "_" + str(today.minute) + "_" + str(today.second)
     file_name = message.document.file_name
     file = await context.bot.get_file(file_id)
     downloaded_file = await file.download_as_bytearray()
     directory = f'/app/files/{date_str}'
+    directory = os.getcwd() + "\\" + date_str
 
     # os.rmdir(directory)
     os.makedirs(directory, exist_ok=False)
     print('message.document.mime_type=' + message.document.mime_type)
     if message.document and message.document.mime_type == 'application/zip':
+        print('Start unzip')
         zip_file_path = os.path.join(directory, file_name)
         with open(zip_file_path, 'wb') as file:
             file.write(downloaded_file)
 
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(directory)
-        message.reply_text('Архів розпаковано, іде обробка вмісту')
+        await message.reply_text('Архів розпаковано, іде обробка вмісту')
+
+    rename_files_with_random_hex(directory)
 
     for root, dirs, files in os.walk(directory):
-        for file_name in files:
-            file_path = os.path.join(root, file_name)
-            shutil.move(file_path, directory)
+        for file in files:
+            source_file = os.path.join(root, file)
+            destination_file = os.path.join(directory, file)
+            while os.path.exists(destination_file):
+                filename, extension = os.path.splitext(file)
+                destination_file = os.path.join(directory, filename + str(random.randint(1, 999)) + extension)
+            destination_file = os.path.join(directory, filename + str(random.randint(1, 999)) + extension)
+            shutil.copy2(source_file, destination_file)
 
-    for root, dirs, files in os.walk(directory, topdown=False):
-        for dir_name in dirs:
-            dir_path = os.path.join(root, dir_name)
-            os.rmdir(dir_path)
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if not file.endswith('.pdf'):
+                os.remove(file_path)
+        for dir in dirs:
+            dir_path = os.path.join(root, dir)
+            shutil.rmtree(dir_path)
 
     result_file = parse(directory, date_str + '.csv')
-    context.bot.send_document(chat_id=update.effective_chat.id, document=result_file)
+    await context.bot.send_document(chat_id=update.effective_chat.id, document=result_file)
 
 async def start(update, context):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Привіт, я вмію парсити PDF! Просто скинь мені zip-архів в якому знаходяться PDF-файли або сам PDF")
@@ -169,8 +203,7 @@ async def parse_zip(update, context):
     await unzip_and_proceed(update, context)
 
 def main() -> None:
-    # bot_token = os.getenv('BOT_TOKEN')
-    bot_token = "6049151976:AAGvaVxb_mRY7G-W8eF7QzMD4GPe6WwRyJU"
+    bot_token = os.getenv('BOT_TOKEN')
     application = Application.builder().token(bot_token).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))

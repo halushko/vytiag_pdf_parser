@@ -6,6 +6,6 @@ services:
     environment:
       BOT_TOKEN: <input bot token here>
       BOT_TRUSTED_USERS: <comma separated user IDs>
-      BUILD_ADDRESSES: "Каблукова Академіка;Скакуна Віталія"
+      BUILD_ADDRESSES: "вулиця Каблукова Академіка;вулиця Скакуна Віталія;проспект Гузара Любомира;проспект Комарова Космонавта"
     restart: always
     container_name: "parser"
