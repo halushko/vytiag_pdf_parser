@@ -127,13 +127,14 @@ def parse(pdf_folder):
                                          sstr(owner_val_res),
                                          sstr(ipn_val),
                                          sstr(zaborona_val)])
+    return csv_path
 
 async def unzip_and_proceed(update, context):
     message = update.message
     file_id = message.document.file_id
     file_name = message.document.file_name
-    file_path = context.bot.get_file(file_id).file_path
-    downloaded_file = context.bot.download_file(file_path)
+    file = await context.bot.get_file(file_id)
+    downloaded_file = await file.download_as_bytearray()
     directory = f'/app/file/{file_id}'
     os.rmdir(directory)
     os.makedirs(directory, exist_ok=False)
@@ -157,8 +158,8 @@ async def unzip_and_proceed(update, context):
             dir_path = os.path.join(root, dir_name)
             os.rmdir(dir_path)
 
-    parse(directory)
-
+    result_file = parse(directory)
+    context.bot.send_document(chat_id=update.effective_chat.id, document=result_file)
 
 async def start(update, context):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Привіт, я вмію парсити PDF! Просто скинь мені zip-архів в якому знаходяться PDF-файли або сам PDF")
