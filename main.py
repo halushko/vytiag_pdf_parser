@@ -93,7 +93,8 @@ def parse(pdf_folder, csv_path):
                         square_val.extend(find_between(rng, square, square_leave, price_mn, address, stor, ', житлова', vidomosti))
                         address_val = find_between(rng, address, info_zagolovok, 'ВІДОМОСТІ', stor, vidomosti)
                         for av in address_val:
-                            env_value = os.getenv('BUILD_ADDRESSES')
+                            # env_value = os.getenv('BUILD_ADDRESSES')
+                            env_value = "вулиця Каблукова Академіка;вулиця Скакуна Віталія;проспект Гузара Любомира;проспект Комарова Космонавта"
                             if env_value:
                                 values = env_value.split(';')
                                 avr = av
